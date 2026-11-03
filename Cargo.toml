@@ -1,0 +1,16 @@
+[package]
+name = "perfticker"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+crossterm = "0.29.0"
+ratatui = "0.30.2"
+sysinfo = "0.40.1"
+unicode-width = "0.2.3"
+
+# macmon 走 Apple 的 IOReport 私有框架拿功耗与温度，只在 macOS 上引入；
+# Linux 侧用 /proc 与 /sys，两者不共依赖。
+[target.'cfg(target_os = "macos")'.dependencies]
+macmon = { version = "0.10.0", default-features = false }
