@@ -65,6 +65,34 @@ pub enum Focus {
     Procs,
 }
 
+/// 龙虎榜的排序维度。
+///
+/// 只有 CPU 与内存两项：席位要按 GPU 排需要 per-process 的 GPU 占用，
+/// 而 macmon 的 lib 不暴露进程级数据（进程列表在 app feature 里），
+/// Linux 侧更是只有 NVIDIA 的 NVML accounting 有。数据拿不到就不给这一档。
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum SeatSort {
+    Cpu,
+    Mem,
+}
+
+impl SeatSort {
+    pub fn next(self) -> Self {
+        match self {
+            SeatSort::Cpu => SeatSort::Mem,
+            SeatSort::Mem => SeatSort::Cpu,
+        }
+    }
+
+    /// 维度名，保持两字以内，状态栏与标题栏共用。
+    pub fn title(self) -> &'static str {
+        match self {
+            SeatSort::Cpu => "CPU",
+            SeatSort::Mem => "内存",
+        }
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ProcSort {
     Cpu,
@@ -99,6 +127,7 @@ pub struct App {
     pub focus: Focus,
     /// 龙虎榜里选中行的下标。
     pub seat_selected: usize,
+    pub seat_sort: SeatSort,
     /// 进程表的席位过滤，Some(uid) 表示只看该属主的进程。
     pub seat_filter: Option<u32>,
     pub watch_scroll: usize,
@@ -157,6 +186,7 @@ impl App {
             tape: Tape::new(TAPE_CAP),
             focus: Focus::Watch,
             seat_selected: 0,
+            seat_sort: SeatSort::Cpu,
             seat_filter: None,
             watch_scroll: 0,
             viewport: 1,
@@ -316,9 +346,19 @@ impl App {
         self.theme = Theme::new(!self.theme.intl);
     }
 
-    /// 龙虎榜的数据源，按 CPU 占比从高到低。
+    /// 龙虎榜的数据源，采集层给的原始顺序（按 CPU）。
     pub fn seats(&self) -> &[crate::snapshot::Seat] {
         self.snap.as_ref().map(|s| s.seats.as_slice()).unwrap_or(&[])
+    }
+
+    /// 按当前排序维度重排的席位。
+    pub fn seats_sorted(&self) -> Vec<&crate::snapshot::Seat> {
+        let mut v: Vec<&crate::snapshot::Seat> = self.seats().iter().collect();
+        match self.seat_sort {
+            SeatSort::Cpu => v.sort_by(|a, b| b.cpu_pct.total_cmp(&a.cpu_pct)),
+            SeatSort::Mem => v.sort_by(|a, b| b.mem_bytes.cmp(&a.mem_bytes)),
+        }
+        v
     }
 
     /// 龙虎榜最多展示的席位数量。

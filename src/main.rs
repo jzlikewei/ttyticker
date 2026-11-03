@@ -314,14 +314,18 @@ fn on_key(app: &mut App, k: KeyEvent) {
             app.searching = true;
             app.search = Some(app.search.clone().unwrap_or_default());
         }
-        KeyCode::Char('s') => {
-            app.proc_sort = match app.proc_sort {
-                ProcSort::Cpu => ProcSort::Mem,
-                ProcSort::Mem => ProcSort::Threads,
-                ProcSort::Threads => ProcSort::Pid,
-                ProcSort::Pid => ProcSort::Cpu,
-            };
-        }
+        // S 是上下文相关的排序键：在龙虎榜切席位维度，在其他区切进程表列。
+        KeyCode::Char('s') => match app.focus {
+            Focus::Seats => app.seat_sort = app.seat_sort.next(),
+            _ => {
+                app.proc_sort = match app.proc_sort {
+                    ProcSort::Cpu => ProcSort::Mem,
+                    ProcSort::Mem => ProcSort::Threads,
+                    ProcSort::Threads => ProcSort::Pid,
+                    ProcSort::Pid => ProcSort::Cpu,
+                };
+            }
+        },
         KeyCode::Char(c @ '1'..='5') => {
             app.set_period(c as usize - '1' as usize);
         }

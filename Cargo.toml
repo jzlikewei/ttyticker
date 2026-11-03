@@ -1,5 +1,5 @@
 [package]
-name = "perfticker"
+name = "ttyticker"
 version = "0.1.0"
 edition = "2024"
 # edition 2024 需要 1.85 以上的工具链，cargo 会在低于此版本时直接报错。

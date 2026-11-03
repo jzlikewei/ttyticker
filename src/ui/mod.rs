@@ -119,20 +119,42 @@ fn header_bar(f: &mut Frame, app: &App, area: Rect) {
         Span::styled("● 实时", Style::default().fg(t.up))
     };
     let colors = if t.intl { "绿涨红跌" } else { "红涨绿跌" };
-    let line = Line::from(vec![
-        Span::styled(" PERFTICKER ", Style::default().fg(t.bg).bg(t.accent).bold()),
-        Span::raw(" "),
+    // 内存与 GPU 直接摆在标题栏：这两个是「一眼要知道」的状态，
+    // 不该藏在左边的板块列表里翻。GPU 读不到时整段省略，不显示 0%。
+    let mem = app.snap().map(|s| {
+        format!(
+            "内存 {:.1}G/{:.0}G",
+            s.mem_used_gb(),
+            s.mem.total as f64 / 1_073_741_824.0
+        )
+    });
+    let gpu = app
+        .snap()
+        .filter(|s| s.has_gpu)
+        .map(|s| format!("GPU {:.0}%", s.gpu.active_ratio * 100.0));
+    let sep = || Span::styled("  │  ", Style::default().fg(t.line));
+    let mut spans = vec![
+        Span::styled(" ttyticker ", Style::default().fg(t.bg).bg(t.accent).bold()),
+        Span::styled(" 老实看监控，很枯燥吧？ ", Style::default().fg(t.dim)),
         Span::styled(format!("{} · {} 核", app.chip, app.cores), Style::default().fg(t.text)),
-        Span::styled("  │  ", Style::default().fg(t.line)),
-        Span::styled(
-            format!("采样 {:.1}s", app.interval.as_secs_f64()),
-            Style::default().fg(t.dim),
-        ),
-        Span::raw("  "),
-        live,
-        Span::styled("  │  ", Style::default().fg(t.line)),
-        Span::styled(colors, Style::default().fg(t.dim)),
-    ]);
+        sep(),
+        Span::styled(mem.unwrap_or_else(|| "内存 —".into()), Style::default().fg(t.text)),
+    ];
+    // GPU 读不到时整段省略，连分隔符一起省，不留一段空白。
+    if let Some(g) = gpu {
+        spans.push(sep());
+        spans.push(Span::styled(g, Style::default().fg(t.text)));
+    }
+    spans.push(sep());
+    spans.push(Span::styled(
+        format!("采样 {:.1}s", app.interval.as_secs_f64()),
+        Style::default().fg(t.dim),
+    ));
+    spans.push(Span::raw("  "));
+    spans.push(live);
+    spans.push(sep());
+    spans.push(Span::styled(colors, Style::default().fg(t.dim)));
+    let line = Line::from(spans);
     f.render_widget(Paragraph::new(line).style(Style::default().bg(t.panel)), area);
 }
 
@@ -515,14 +537,18 @@ fn tape_panel(f: &mut Frame, app: &App, area: Rect) {
 fn dragon_tiger(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
     let title = match app.seat_filter {
-        Some(uid) => format!("龙虎榜 · {}", crate::probe::username(uid)),
-        None => "龙虎榜 · 按 CPU".to_string(),
+        Some(uid) => format!(
+            "龙虎榜 · 按 {} · {}",
+            app.seat_sort.title(),
+            crate::probe::username(uid)
+        ),
+        None => format!("龙虎榜 · 按 {}", app.seat_sort.title()),
     };
     let block = panel(&title, &t);
     let inner = block.inner(area);
     f.render_widget(block, area);
 
-    let seats = app.seats();
+    let seats = app.seats_sorted();
     if seats.is_empty() {
         f.render_widget(
             Paragraph::new(Line::from(Span::styled("等待采样…", Style::default().fg(t.dim)))),
@@ -657,8 +683,14 @@ fn status_bar(f: &mut Frame, app: &App, area: Rect) {
         crate::app::Focus::Seats => "个股",
         crate::app::Focus::Procs => "板块",
     };
+    // 排序键跟着焦点走，提示里带上当前维度：按下去之前就知道在切什么、
+    // 现在是什么，而不是等标题栏变了才反应过来。
+    let sort_hint = match app.focus {
+        crate::app::Focus::Seats => format!("S 席位排序·{}", app.seat_sort.title()),
+        _ => format!("S 排序·{}", app.proc_sort.title()),
+    };
     let keys = format!(
-        " Tab 切到{next} · ↑↓ 选行 · 回车 展开 · 空格 暂停 · 1-5 周期 · C 配色 · M 均线 · S 排序 · / 搜索 · Q 退出 "
+        " Tab 切到{next} · ↑↓ 选行 · 回车 展开 · 空格 暂停 · 1-5 周期 · C 配色 · M 均线 · {sort_hint} · / 搜索 · Q 退出 "
     );
     let line = Line::from(vec![
         Span::styled(left, Style::default().fg(t.text)),

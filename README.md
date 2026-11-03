@@ -1,4 +1,6 @@
-# PerfTicker CLI
+# ttyticker
+
+> 老实看监控，很枯燥吧？
 
 把系统指标做成证券行情终端的终端版。CPU、GPU、内存、功耗每一项都是一只「个股」，
 有交易所风格的代码、实时 K 线、均线、量柱；进程是成分股，按属主聚合成龙虎榜。
@@ -60,7 +62,7 @@ EOF
 cargo build --release
 ```
 
-产物在 `target/release/perfticker`，约 1.7 MB，无动态依赖。
+产物在 `target/release/ttyticker`，约 1.7 MB，无动态依赖。
 
 两个平台的依赖是分开的，`macmon` 只在 macOS 上引入：
 
@@ -74,10 +76,10 @@ macmon = { version = "0.10.0", default-features = false }
 ## 运行
 
 ```bash
-./target/release/perfticker
+./target/release/ttyticker
 ```
 
-需要交互式终端。SSH 到服务器时先 `ssh host` 进去再启动，直接 `ssh host ./perfticker` 拿不到 TTY。
+需要交互式终端。SSH 到服务器时先 `ssh host` 进去再启动，直接 `ssh host ./ttyticker` 拿不到 TTY。
 
 最小可用宽度 100 列，窄于此会提示。
 
@@ -123,7 +125,7 @@ macmon = { version = "0.10.0", default-features = false }
 导出后去掉颜色码：
 
 ```bash
-./target/release/perfticker --once | python3 -c "import re,sys; print(re.sub(r'\x1b\[[0-9;]*m','',sys.stdin.read()))"
+./target/release/ttyticker --once | python3 -c "import re,sys; print(re.sub(r'\x1b\[[0-9;]*m','',sys.stdin.read()))"
 ```
 
 ## 数据来源
