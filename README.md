@@ -5,9 +5,6 @@
 把系统指标做成证券行情终端的终端版。CPU、GPU、内存、功耗每一项都是一只「个股」，
 有交易所风格的代码、实时 K 线、均线、量柱；进程是成分股，按属主聚合成龙虎榜。
 
-灵感来自 [PerfTicker](https://github.com/QiuSui1145/PerfTicker/)（Windows GUI 版），
-K 线渲染参考 [tickrs](https://github.com/tarkah/tickrs) 的 Canvas 几何。
-
 ## 界面
 
 ```
@@ -178,3 +175,14 @@ src/
 
 采集层只吐 `Snapshot`，界面只认 `MetricId`，两边通过 `catalog` 对话。
 新增平台等于新增一个 `probe` 实现，上层一行不动。
+
+## 开源协议
+
+[GPL-3.0](LICENSE)。可自由使用、修改、分发，衍生作品需同样以 GPL-3.0 开源并保留版权声明。
+
+## 致谢
+
+- [PerfTicker](https://github.com/QiuSui1145/PerfTicker/) by QiuSui — 把系统指标做成行情终端的原始创意，本项目是它的终端实现
+- [tickrs](https://github.com/tarkah/tickrs) by tarkah — K 线的 Canvas 几何（每根蜡烛四个逻辑单位、实体居中、影线落在正中）照搬自它
+- [ratatui](https://github.com/ratatui/ratatui) — TUI 框架与 Canvas 图元
+- [macmon](https://github.com/vladkens/macmon) by vladkens — Apple Silicon 的免 sudo 功耗与温度采集
