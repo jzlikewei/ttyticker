@@ -3,8 +3,8 @@ name = "ttyticker"
 version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0"
-# edition 2024 需要 1.85 以上的工具链，cargo 会在低于此版本时直接报错。
-rust-version = "1.85"
+# 当前依赖 sysinfo 0.40.1 要求 Rust 1.95；最低版本须覆盖依赖要求。
+rust-version = "1.95"
 
 [dependencies]
 anyhow = "1"

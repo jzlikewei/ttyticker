@@ -28,109 +28,250 @@ GPU 与温度显示 `—` 是因为虚拟机没有对应传感器，不是读数
 └──────────────────────────────────────────────────────────────────┘
 ```
 
+## 快速开始
+
+已安装 Rust 1.95 或更高版本、Git 和系统编译工具的话，可以直接从源码编译：
+
+```bash
+git clone https://github.com/jzlikewei/ttyticker.git
+cd ttyticker
+cargo build --release --locked
+./target/release/ttyticker
+```
+
+**或者直接使用预编译好的二进制**，无需安装 Rust：前往
+[Releases](https://github.com/jzlikewei/ttyticker/releases)，按操作系统和 CPU 架构下载附件。
+具体命令见下方「使用预编译二进制」。
+
 ## 系统要求
 
 | | 要求 |
 |---|---|
-| 工具链 | Rust **1.85 或更高**（`edition = "2024"`），`cargo build` 会检查 |
-| macOS | **Apple Silicon**（M1 及以上）。macmon 走 IOReport 私有框架，Intel 芯片拿不到功耗与温度 |
-| Linux | x86_64 或 aarch64，内核 4.x 以上。只需要 `/proc` 与 `/sys`，无第三方运行时依赖 |
+| macOS | **Apple Silicon**（M1 及以上）；采集依赖 IOReport 等系统接口，当前不支持 Intel Mac |
+| Linux | x86_64 或 aarch64；采集依赖 `/proc` 与 `/sys`，具体硬件指标取决于驱动和读取权限 |
+| Windows | 当前不支持 |
+| 终端 | 交互式终端，至少 **100 列**；建议 150 列 × 42 行，并使用能显示中文与 Braille 字符的字体 |
+| 源码编译 | Rust **1.95 或更高**、Cargo、Git，以及系统 C 编译器/链接器；使用预编译二进制时不需要这些工具 |
 
-**不需要 root**。macOS 侧免 sudo 拿功耗，Linux 侧全部是只读查询。
+最低 Rust 版本由当前依赖决定：`sysinfo 0.40.1` 要求 1.95，不能只按 Rust 2024 edition
+的最低版本 1.85 判断。`Cargo.toml` 中的 `rust-version` 与此保持一致。
 
-## 安装工具链
+通常以普通用户运行即可，无需 sudo。Linux 的部分硬件指标可能因权限或驱动而不可用。
+程序仍依赖操作系统提供的库；macOS 版本会动态链接 IOKit、IOReport 等系统库，
+并非完全静态的二进制。
 
-没装 Rust 的话：
+## 使用预编译二进制
+
+[v0.1.0](https://github.com/jzlikewei/ttyticker/releases/tag/v0.1.0) 提供以下附件；
+后续版本与附件以 [Releases](https://github.com/jzlikewei/ttyticker/releases) 页面为准：
+
+| 平台 | 下载文件 |
+|---|---|
+| macOS Apple Silicon（arm64） | [ttyticker-macos-arm64](https://github.com/jzlikewei/ttyticker/releases/download/v0.1.0/ttyticker-macos-arm64) |
+| Linux x86_64 | [ttyticker-linux-x86_64](https://github.com/jzlikewei/ttyticker/releases/download/v0.1.0/ttyticker-linux-x86_64) |
+
+这些附件是可执行文件，无需解压。在终端进入下载目录后，按平台运行：
+
+```bash
+# macOS Apple Silicon
+chmod +x ./ttyticker-macos-arm64
+./ttyticker-macos-arm64
+```
+
+```bash
+# Linux x86_64
+chmod +x ./ttyticker-linux-x86_64
+./ttyticker-linux-x86_64
+```
+
+可用 `uname -m` 查看 CPU 架构。v0.1.0 暂无 Linux aarch64 附件，请从源码编译。
+如果 Linux 提示 `GLIBC_* not found`，说明预编译文件与本机系统库不兼容，请在本机编译。
+下文命令使用源码构建路径；使用下载的二进制时，将 `./target/release/ttyticker` 替换为对应文件路径。
+
+## 从源码编译
+
+### 1. 安装系统编译工具
+
+macOS 安装 Xcode Command Line Tools（已安装则跳过）：
+
+```bash
+xcode-select --install
+```
+
+Linux 安装 Git、C 编译器和链接器，例如 Debian / Ubuntu：
+
+```bash
+sudo apt update
+sudo apt install -y build-essential git curl ca-certificates
+```
+
+其他发行版请用对应包管理器安装等效工具。安装系统软件可能需要管理员权限，运行 ttyticker 本身通常不需要。
+
+### 2. 安装或更新 Rust
+
+尚未安装 Rust：
 
 ```bash
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
 source ~/.cargo/env
 ```
 
-国内网络建议配镜像，否则拉依赖会非常慢（实测官方源单次请求要 8 秒，rsproxy 只要 0.5 秒）：
+如果已有通过 rustup 安装的 Rust，但版本低于 1.95：
 
 ```bash
-mkdir -p ~/.cargo
-cat > ~/.cargo/config.toml <<'EOF'
+rustup update stable
+rustup default stable
+```
+
+确认当前生效的工具链版本：
+
+```bash
+rustc --version
+cargo --version
+```
+
+国内网络拉取依赖较慢时，可选择配置镜像。将以下配置合并到 `~/.cargo/config.toml`；
+若文件已有内容，请保留现有配置，并检查是否已有同名配置节，不要直接覆盖：
+
+```toml
 [source.crates-io]
 replace-with = "rsproxy-sparse"
 
 [source.rsproxy-sparse]
 registry = "sparse+https://rsproxy.cn/index/"
-EOF
 ```
 
-## 编译
+### 3. 获取源码并编译
 
 ```bash
-cargo build --release
+git clone https://github.com/jzlikewei/ttyticker.git
+cd ttyticker
+cargo build --release --locked
 ```
 
-产物在 `target/release/ttyticker`，约 1.7 MB，无动态依赖。
+如果已经下载源码，进入包含 `Cargo.toml` 的项目根目录后执行构建命令即可。
+首次构建需要联网下载依赖；`--locked` 使用仓库提交的 `Cargo.lock`，避免意外更新依赖版本。
 
-两个平台的依赖是分开的，`macmon` 只在 macOS 上引入：
+产物在 `target/release/ttyticker`。直接运行这个文件即可，文件大小取决于平台和工具链。
+默认构建的是当前系统与架构的程序，并非同时生成所有平台的二进制。
+
+平台依赖分开声明，`macmon` 只在 macOS 上引入，因此 Linux 构建不需要 Apple 框架：
 
 ```toml
 [target.'cfg(target_os = "macos")'.dependencies]
 macmon = { version = "0.10.0", default-features = false }
 ```
 
-所以在 Linux 上编译不会碰到 Apple 框架，反之亦然。
+## 运行与基本操作
 
-## 运行
+在项目根目录的交互式终端中启动：
 
 ```bash
 ./target/release/ttyticker
 ```
 
-需要交互式终端。SSH 到服务器时先 `ssh host` 进去再启动，直接 `ssh host ./ttyticker` 拿不到 TTY。
+默认约每秒采样一次，使用 5 秒 K 线。刚启动时历史数据较少，等待一段时间后图表会逐渐填充。
 
-最小可用宽度 100 列，窄于此会提示。
+1. 在「板块」区用上下键选择 CPU、内存等指标，主图显示对应 K 线，同时解除已有的进程锁定。
+2. 按 `Tab` 切到「龙虎榜」，选择属主并按回车，按该属主过滤进程；再次回车取消过滤。
+3. 再按 `Tab` 切到「个股」，选择进程并按回车，将主图锁定到该进程；再次回车解除锁定。
+4. 按 `/` 输入进程名或 PID，再按回车保留搜索条件并恢复快捷键。按 `Esc` 可清空搜索。
+5. 非搜索输入状态下，`Esc` 每次清除一层状态，顺序为搜索 → 进程锁定 → 席位过滤；没有这些状态时退出程序。状态栏会提示当前生效的状态。
+6. 非搜索输入状态下按小写 `q` 直接退出；`Ctrl+C` 在搜索输入时也可退出。
+
+SSH 使用时，可以先 `ssh host` 登录，再启动程序；也可以显式分配 TTY：
+
+```bash
+ssh -t host '/path/to/ttyticker'
+```
+
+将 `host` 和程序路径替换为实际值。直接执行 `ssh host ./ttyticker` 通常不会分配交互式 TTY。
+需要重定向输出或在无 TTY 环境中运行时，请使用下方诊断模式。
 
 ## 按键
+
+**字母快捷键使用小写，不要按 Shift。** 搜索输入期间，字母和空格用于输入搜索词，不触发快捷键。
 
 | 键 | 作用 |
 |---|---|
 | `Tab` | 三区循环切换焦点：板块 → 龙虎榜 → 个股 |
 | `↑` `↓` / `k` `j` | 在当前区移动选中行 |
-| `回车` | 龙虎榜：按席位过滤进程表；个股：把主图锁到该进程 |
-| `空格` | 暂停 / 继续采样 |
+| `回车` | 龙虎榜：开启 / 取消席位过滤；个股：锁定 / 解除主图进程；搜索输入时：提交搜索并恢复快捷键 |
+| `空格` | 暂停 / 继续图表历史更新；后台采集仍继续 |
 | `1`–`5` | 切换 K 线周期（2 秒 / 5 秒 / 10 秒 / 30 秒 / 1 分） |
-| `C` | 红涨绿跌 ↔ 绿涨红跌 |
-| `M` | 均线档位：三条 → 只 MA5 → 关闭 |
-| `S` | 个股列表排序：CPU → 内存 → 线程 → PID |
-| `/` | 搜索进程名或 PID，`Esc` 清空 |
-| `Q` | 退出 |
+| `c` | 红涨绿跌 ↔ 绿涨红跌 |
+| `m` | 均线档位：三条 → 只 MA5 → 关闭 |
+| `s` | 焦点在龙虎榜：按 CPU / 内存排序席位；其他区：进程排序 CPU → 内存 → 线程 → PID |
+| `/` | 开始或继续编辑进程名 / PID 搜索 |
+| `Esc` | 搜索输入时：清空并结束搜索；其他时候：按搜索 → 进程锁定 → 席位过滤的顺序清除一层；无状态可清除时退出 |
+| `q` | 非搜索输入状态下退出 |
+| `Ctrl+C` | 退出，包括搜索输入状态 |
 
 ## 诊断模式
 
-不进交互界面，跑完直接输出，用于回归验证。
+不进入交互界面，可重定向输出。每次只选择一个模式。`--once`、`--demo` 和
+`--faults-probe` 仍需要能初始化本机采集器；`--demo` 并非完全离线的模拟模式。
+当前没有 `--help` / `--version` 参数，请以本节为准。
 
-| 命令 | 用途 |
+| 参数 | 用途与等待时间 |
 |---|---|
-| `--once` | 采样若干轮后导出一帧带颜色的 ANSI，重定向到文件即可看渲染结果 |
-| `--demo` | 同上，但注入多属主的样例进程，验证席位显示 |
-| `--faults-probe` | 连续采样，统计换页速率与内存占用，输出与 CPU 占用的相关系数 |
-| `--grid-test` | 探测 ratatui Canvas 对 Rectangle / Line 的栅格化行为 |
+| `--once` | 累积真实采样后导出一帧 ANSI 文本；默认循环 180 轮，每轮等待 260 ms，约 47 秒后输出，另加初始化耗时 |
+| `--demo` | 固定循环 12 轮，每轮等待 220 ms，随后注入多属主样例进程并导出一帧；约 3 秒，另加初始化耗时 |
+| `--faults-probe` | 连续采样并输出换页速率等统计；默认 40 轮，每轮约 1 秒 |
+| `--grid-test` | 探测 ratatui Canvas 对 Rectangle / Line 的栅格化行为，无需硬件采样 |
 
-`--once` 与 `--demo` 支持这些环境变量：
+可用环境变量：
 
-| 变量 | 含义 |
-|---|---|
-| `PT_ROUNDS` | 采样轮数，默认 180 |
-| `PT_COLS` / `PT_ROWS` | 渲染尺寸，默认 150 × 42 |
-| `PT_MARKER` | Canvas 栅格化方案：`braille`（默认）/ `block` / `halfblock` / `dot` |
-| `PT_SELECT` | 指定品种代码，如 `000001`，看它的副图口径 |
-| `PT_LOCK_SELF` | 主图锁定到本进程 |
-| `PT_LOCK_TOP` | 主图锁定到当前占用最高的进程 |
-| `PT_DEBUG_CHART` | 打印主图的布局数值（容量、根数、偏移） |
-| `PT_DEBUG_VM` | 打印 host_statistics 的原始返回 |
+| 变量 | 适用范围 | 含义 |
+|---|---|---|
+| `PT_ROUNDS` | 仅 `--once` | 循环轮数，默认 180；轮数较少时图表历史也较少 |
+| `PT_COLS` / `PT_ROWS` | `--once`、`--demo` | 导出尺寸；`--once` 默认 **140 × 42**，`--demo` 默认 **150 × 42** |
+| `PT_SELECT` | 仅 `--once` | 指定品种代码，如 `000001` |
+| `PT_LOCK_SELF` | 仅 `--once` | 设置后主图锁定本进程，优先于 `PT_LOCK_TOP` |
+| `PT_LOCK_TOP` | 仅 `--once` | 设置后主图锁定当前进程列表首项（默认按 CPU 排序） |
+| `PT_N` | 仅 `--faults-probe` | 采样轮数，默认 40，建议至少 2 |
+| `PT_MARKER` | 交互界面、`--once`、`--demo` | 主图栅格化方案：`braille`（默认）/ `block` / `halfblock` / `dot` / `bar` |
+| `PT_DEBUG_CHART` | 交互界面、`--once`、`--demo` | 设置后向标准错误打印主图布局数值；建议诊断时使用 |
+| `PT_DEBUG_VM` | macOS 硬件采样模式 | 设置后打印 `host_statistics` 原始返回，Linux 不使用 |
 
-导出后去掉颜色码：
+开关型变量按「是否设置」判断，设为 `0` 也会启用；不需要时请取消该变量。
+
+快速检查采集与渲染（缩短等待，图表尚不会填满）：
 
 ```bash
-./target/release/ttyticker --once | python3 -c "import re,sys; print(re.sub(r'\x1b\[[0-9;]*m','',sys.stdin.read()))"
+PT_ROUNDS=12 ./target/release/ttyticker --once > snapshot.ansi
+cat snapshot.ansi
 ```
+
+导出样例进程界面，或进行较短的采样诊断：
+
+```bash
+PT_COLS=150 PT_ROWS=42 ./target/release/ttyticker --demo > demo.ansi
+PT_N=10 ./target/release/ttyticker --faults-probe
+```
+
+ANSI 文件在支持颜色的终端中查看。若需要去掉颜色码转成普通文本，可用 Python 3（仅此转换步骤需要）：
+
+```bash
+python3 -c "import re,sys; print(re.sub(r'\x1b\[[0-9;]*m','',sys.stdin.read()))" < snapshot.ansi > snapshot.txt
+```
+
+## 常见问题
+
+| 现象 | 处理方式 |
+|---|---|
+| `cargo: command not found` | 安装 Rust 后执行 `source ~/.cargo/env`，或重新打开终端 |
+| 提示 Rust 版本过低 | 更新工具链，并用 `rustc --version` 确认实际生效版本至少为 1.95；检查目录是否设置了旧版本 override |
+| 找不到 `cc` / linker，或缺少 macOS SDK | 安装上文的系统编译工具；macOS 可用 `xcode-select -p` 检查开发工具路径 |
+| 下载的程序提示 `Permission denied` | 对该文件执行 `chmod +x` |
+| `Exec format error` / `Bad CPU type` | 检查文件的平台与 `uname -m` 是否匹配；Intel Mac 当前不支持 |
+| Linux 提示 `GLIBC_* not found` | 在目标机器从源码编译，或使用与二进制兼容的系统 |
+| macOS 阻止打开下载的程序 | 确认文件来自本仓库 Release 后，按系统「隐私与安全性」中的提示允许该程序；也可以从源码编译 |
+| 无法初始化采集器 | macOS 确认是 Apple Silicon；沙箱或系统接口限制可能阻止 IOReport 采样，可在本机普通终端重试 |
+| 界面提示终端过窄、布局拥挤 | 放大终端至至少 100 列，建议 150 × 42；中文或 K 线字符异常时检查字体，或尝试 `PT_MARKER=block` |
+| SSH 启动时报 TTY 错误 | 先登录再运行，或使用 `ssh -t`；导出快照则使用 `--once` |
+| `--once` 暂时没有输出 | 默认需要约 47 秒，可设置较小的 `PT_ROUNDS` 缩短等待 |
+| 搜索后 `q` 不退出 / `Esc` 没有退出 | 输入搜索时 `q` 是搜索词；回车提交后恢复快捷键。`Esc` 先逐层清除搜索、进程锁定和席位过滤；要直接退出用非搜索输入状态下的 `q`，或 `Ctrl+C` |
 
 ## 数据来源
 
