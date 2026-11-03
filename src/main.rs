@@ -283,7 +283,14 @@ fn on_key(app: &mut App, k: KeyEvent) {
     }
 
     match k.code {
-        KeyCode::Char('q') | KeyCode::Esc => app.running = false,
+        KeyCode::Char('q') => app.running = false,
+        // Esc 逐层退出：搜索 → 个股锁定 → 席位过滤 → 退出程序。
+        // 在哪个区都能拆掉当前这一层，不用先 Tab 回原区。
+        KeyCode::Esc => {
+            if !app.pop_layer() {
+                app.running = false;
+            }
+        }
         KeyCode::Char(' ') => app.paused = !app.paused,
         KeyCode::Char('c') => app.toggle_theme(),
         KeyCode::Char('m') => app.ma_mode = app.ma_mode.next(),

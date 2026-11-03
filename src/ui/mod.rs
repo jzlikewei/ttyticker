@@ -692,10 +692,41 @@ fn status_bar(f: &mut Frame, app: &App, area: Rect) {
     let keys = format!(
         " Tab 切到{next} · ↑↓ 选行 · 回车 展开 · 空格 暂停 · 1-5 周期 · C 配色 · M 均线 · {sort_hint} · / 搜索 · Q 退出 "
     );
-    let line = Line::from(vec![
-        Span::styled(left, Style::default().fg(t.text)),
-        // 按键提示原先用边框色，那是给描边用的，在黑底上读不出来。
-        Span::styled(keys, Style::default().fg(t.dim)),
-    ]);
-    f.render_widget(Paragraph::new(line).style(Style::default().bg(t.panel)), area);
+    // 当前生效的层：席位过滤、个股锁定、搜索。
+    //
+    // 这三层都能用 Esc 逐层拆掉，但前提是用户知道它们正在生效——
+    // 看不见的状态等于没有出口，之前「个股一直显示某个人却不知道怎么取消」
+    // 就是因为过滤生效了却没有任何提示。
+    let mut layers: Vec<String> = Vec::new();
+    if let Some(uid) = app.seat_filter {
+        layers.push(format!("席位 {}", crate::probe::username(uid)));
+    }
+    if let Some(pid) = app.chart_proc {
+        let name = app
+            .snap()
+            .and_then(|s| s.procs.iter().find(|p| p.pid == pid))
+            .map(|p| p.name.clone())
+            .unwrap_or_else(|| format!("PID{pid}"));
+        layers.push(format!("个股 {name}"));
+    }
+    if let Some(q) = &app.search {
+        if !q.is_empty() {
+            layers.push(format!("搜索 {q}"));
+        }
+    }
+
+    let mut spans = vec![Span::styled(left, Style::default().fg(t.text))];
+    if !layers.is_empty() {
+        spans.push(Span::styled(
+            format!("│ {} ", layers.join(" · ")),
+            Style::default().fg(t.accent).bold(),
+        ));
+        spans.push(Span::styled("Esc 清除 ", Style::default().fg(t.text)));
+    }
+    // 按键提示原先用边框色，那是给描边用的，在黑底上读不出来。
+    spans.push(Span::styled(keys, Style::default().fg(t.dim)));
+    f.render_widget(
+        Paragraph::new(Line::from(spans)).style(Style::default().bg(t.panel)),
+        area,
+    );
 }

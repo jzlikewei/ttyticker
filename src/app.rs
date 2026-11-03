@@ -315,6 +315,8 @@ impl App {
         let n = cat.entries.len() as isize;
         let next = ((cur + delta) % n + n) % n;
         self.selected = cat.entries[next as usize].id;
+        // 主动切品种就是想看别的，主图的个股锁定跟着解除。
+        self.chart_proc = None;
         self.keep_selection_visible();
     }
 
@@ -365,8 +367,11 @@ impl App {
     pub const SEAT_ROWS: usize = 10;
 
     /// 龙虎榜上下键移动选中行，只在可见的十条之内循环。
+    ///
+    /// 行号必须对着 `seats_sorted()` 算——界面渲染的是那份重排后的列表，
+    /// 拿原始顺序按同一个行号取会选到另一个人。
     pub fn move_seat_selection(&mut self, delta: isize) {
-        let n = self.seats().len().min(Self::SEAT_ROWS);
+        let n = self.seats_sorted().len().min(Self::SEAT_ROWS);
         if n == 0 {
             return;
         }
@@ -382,9 +387,30 @@ impl App {
             self.proc_scroll = 0;
             return;
         }
-        self.seat_filter = self.seats().get(self.seat_selected).map(|s| s.uid);
+        // 同样对着重排后的列表取，否则按 S 换过排序之后会过滤错人。
+        let uid = self.seats_sorted().get(self.seat_selected).map(|s| s.uid);
+        self.seat_filter = uid;
         self.proc_selected = 0;
         self.proc_scroll = 0;
+    }
+
+    /// 当前生效的过滤与锁定，逐层退出时按这个顺序拆。
+    ///
+    /// 从最临时的往外拆：搜索 → 个股锁定 → 席位过滤。
+    /// 三层都没有时返回 false，调用方据此决定是否退出程序。
+    pub fn pop_layer(&mut self) -> bool {
+        if self.search.take().is_some() {
+            return true;
+        }
+        if self.chart_proc.take().is_some() {
+            return true;
+        }
+        if self.seat_filter.take().is_some() {
+            self.proc_selected = 0;
+            self.proc_scroll = 0;
+            return true;
+        }
+        false
     }
 
     /// 注入样例进程，用于验证多用户场景下的席位显示。
