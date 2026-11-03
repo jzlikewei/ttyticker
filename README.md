@@ -154,6 +154,12 @@ macmon = { version = "0.10.0", default-features = false }
 
 **NVIDIA 卡在 Linux 上暂不支持**，需要走 NVML（`libnvidia-ml.so`）。目前只覆盖 amdgpu 的 sysfs 接口。
 
+**Linux 侧的 GPU 支持未在有 GPU 的机器上验证过。** 验证环境是台虚拟机，显卡是 QEMU 的
+Cirrus GD 5446，`/sys/class/drm/card0/device` 下没有任何指标节点，`has_gpu` 恒为 false，
+所以 GPU 那条代码路径在 Linux 上从未跑过有数据的分支。amdgpu 的 `gpu_busy_percent`
+能不能正确解析、字段名各代驱动是否一致，都还是纸面推断。macOS 侧的 GPU 走 macmon，
+是真机验证过的。
+
 ## 架构
 
 ```
